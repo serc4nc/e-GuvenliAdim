@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>e-GüvenliAdım | e-Devlet Sesli Arama Prototipi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #e2e8f0;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+            70% { transform: scale(1.05); box-shadow: 0 0 0 18px rgba(220, 38, 38, 0); }
+            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+        }
+        .listening-active {
+            animation: pulse-ring 1.5s infinite;
+            background-color: #dc2626 !important;
+        }
+        .fp-ring {
+            transition: stroke-dashoffset 0.05s linear;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
+        }
+        @keyframes pointer-glow {
+            0%, 100% { box-shadow: 0 0 0 4px rgba(250, 204, 21, 0.85), 0 10px 20px -5px rgba(217, 37, 45, 0.45); }
+            50% { box-shadow: 0 0 0 8px rgba(250, 204, 21, 0.4), 0 14px 25px -5px rgba(217, 37, 45, 0.65); }
+        }
+        .target-highlight {
+            animation: pointer-glow 1.6s infinite;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-5">
+
+    <!-- Telefon Çerçevesi -->
+    <div id="phoneFrame" class="w-full max-w-md bg-white rounded-[2.2rem] shadow-2xl border-[5px] border-slate-900 overflow-hidden flex flex-col min-h-[810px] max-h-[880px] relative">
+
+        <!-- ========================================================= -->
+        <!-- KATMAN 1: e-GÜVENLİADIM UYGULAMA İÇİ GÖRÜNÜMÜ              -->
+        <!-- ========================================================= -->
+        <div id="inAppLayer" class="flex-1 flex flex-col overflow-hidden bg-white">
+            <!-- Üst Marka Çubuğu -->
+            <header class="bg-slate-900 text-white px-5 py-4 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-10 h-10 rounded-2xl bg-red-600 flex items-center justify-center shadow-md">
+                        <i data-lucide="shield-check" class="w-6 h-6 text-white"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-extrabold tracking-tight leading-none">e-GüvenliAdım</h1>
+                        <span class="text-xs text-slate-300 font-medium">Güvenli Dijital Rehber</span>
+                    </div>
+                </div>
+                <button onclick="toggleCompanionMode()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-600 text-xs font-semibold flex items-center gap-1.5 transition">
+                    <i data-lucide="users" class="w-3.5 h-3.5 text-emerald-400"></i>
+                    <span id="companionLabel">Refakatçi: Aktif</span>
+                </button>
+            </header>
+
+            <!-- Güvenlik Sınırı Bilgilendirmesi -->
+            <div class="bg-amber-50 border-b border-amber-200 px-4 py-2.5 flex items-center gap-2 text-xs text-amber-950 font-semibold shrink-0">
+                <i data-lucide="lock" class="w-4 h-4 text-amber-600 shrink-0"></i>
+                <span>Şifreniz saklanmaz; dış ekranda yalnızca görsel ve sesli rehberlik sunulur.</span>
+            </div>
+
+            <!-- EKRAN 1A: ANA SESLİ / METİN ARAMA EKRANI -->
+            <main id="assistantHomeView" class="flex-1 p-5 flex flex-col gap-4 overflow-y-auto">
+                <section class="bg-slate-50 border-2 border-slate-200 rounded-2xl p-4 text-center shadow-sm">
+                    <p class="text-base font-extrabold text-slate-900 mb-1">Bugün e-Devlet'te ne yapmak istiyorsunuz?</p>
+                    <p class="text-xs font-medium text-slate-600 mb-3.5">Mikrofona konuşun, istediğinizi yazın veya aşağıdan seçin.</p>
+
+                    <div class="flex justify-center mb-2.5">
+                        <button id="micBtn" onclick="startVoiceRecognition()" class="w-20 h-20 rounded-full bg-red-600 hover:bg-red-700 active:scale-95 text-white flex flex-col items-center justify-center shadow-lg transition cursor-pointer">
+                            <i data-lucide="mic" class="w-8 h-8"></i>
+                            <span class="text-[11px] font-extrabold mt-0.5">KONUŞ</span>
+                        </button>
+                    </div>
+                    <p id="voiceStatus" class="text-xs font-semibold text-slate-500 min-h-[16px]"></p>
+
+                    <div class="mt-2.5 flex gap-2">
+                        <input id="queryInput" type="text" placeholder="Örn: Askerlik belgesi, Tapu, Sabıka kaydı..."
+                            class="flex-1 px-3.5 py-3 text-sm rounded-xl border-2 border-slate-300 focus:border-red-600 focus:outline-none bg-white text-slate-900 font-semibold"
+                            onkeydown="if(event.key === 'Enter') analyzeQuery()">
+                        <button onclick="analyzeQuery()" class="px-4 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm transition shrink-0 cursor-pointer">
+                            Bul
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Hızlı Test Senaryoları -->
+                <section>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Hızlı Test Senaryoları</span>
+                        <span class="text-[11px] font-semibold text-slate-400">Biyometrik onaylı</span>
+                    </div>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="runPreset('Sabıka kaydı belgesi almam lazım iş başvurusu için')" class="text-left p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-between transition cursor-pointer">
+                            <span class="text-sm font-bold text-slate-800">"Sabıka kaydı belgesi almam lazım..."</span>
+                            <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 shrink-0">Rutin</span>
+                        </button>
+                        <button onclick="runPreset('Şu ikametgah belgesini bi indirecektim ama yerini bulamadım')" class="text-left p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-between transition cursor-pointer">
+                            <span class="text-sm font-bold text-slate-800">"Şu ikametgah belgesini bi indirecektim..."</span>
+                            <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 shrink-0">Rutin</span>
+                        </button>
+                        <button onclick="runPreset('Emeklilik için SGK hizmet dökümüne bakmam lazım')" class="text-left p-3 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 shadow-sm flex items-center justify-between transition cursor-pointer">
+                            <span class="text-sm font-bold text-slate-800">"Emeklilik için SGK hizmet dökümüne bakmam lazım..."</span>
+                            <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-lg bg-emerald-100 text-emerald-800 shrink-0">Rutin</span>
+                        </button>
+                        <button onclick="runPreset('Telefondan acil icra ve vergi borcu mesajı geldi hemen linke tıkla diyor')" class="text-left p-3 rounded-xl bg-white hover:bg-red-50 border border-red-200 shadow-sm flex items-center justify-between transition cursor-pointer">
+                            <span class="text-sm font-bold text-slate-800">"Acil icra mesajı geldi hemen linke tıkla diyor..."</span>
+                            <span class="text-[11px] font-extrabold px-2 py-0.5 rounded-lg bg-red-100 text-red-800 shrink-0">Riskli!</span>
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Analiz & Parmak İzi Sensörü Kartı -->
+                <section id="resultCard" class="hidden rounded-2xl border-2 p-4 shadow-md transition-all">
+                    <div class="flex items-start justify-between gap-2 pb-2.5 border-b border-slate-200">
+                        <div>
+                            <span id="riskBadge" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold mb-1.5"></span>
+                            <h2 id="intentTitle" class="text-base font-extrabold text-slate-900 leading-snug"></h2>
+                        </div>
+                        <button onclick="speakText(currentSpokenText)" class="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 shrink-0 cursor-pointer" title="Sesli Oku">
+                            <i data-lucide="volume-2" class="w-5 h-5"></i>
+                        </button>
+                    </div>
+
+                    <p id="simplifiedSummary" class="text-xs font-semibold text-slate-700 mt-2.5 leading-relaxed"></p>
+
+                    <div class="mt-3.5 bg-white rounded-2xl p-3.5 border-2 border-dashed border-slate-300 text-center select-none">
+                        <p class="text-[11px] font-extrabold uppercase tracking-wider text-slate-500 mb-2.5">
+                            4 Adımlı Rehberi Başlatmak İçin Basılı Tutun
+                        </p>
+                        <div class="relative w-24 h-24 mx-auto flex items-center justify-center">
+                            <svg class="w-24 h-24 absolute inset-0 pointer-events-none" viewBox="0 0 100 100">
+                                <circle cx="50" cy="50" r="44" stroke="#e2e8f0" stroke-width="6" fill="none" />
+                                <circle id="fpProgressCircle" class="fp-ring" cx="50" cy="50" r="44" stroke="#10b981" stroke-width="6" fill="none"
+                                    stroke-dasharray="276.46" stroke-dashoffset="276.46" stroke-linecap="round" />
+                            </svg>
+                            <button id="fingerprintBtn"
+                                onmousedown="startFingerprintHold(event)"
+                                onmouseup="cancelFingerprintHold()"
+                                onmouseleave="cancelFingerprintHold()"
+                                ontouchstart="startFingerprintHold(event)"
+                                ontouchend="cancelFingerprintHold()"
+                                class="w-20 h-20 rounded-full bg-slate-900 hover:bg-slate-800 active:scale-95 text-emerald-400 flex items-center justify-center shadow-lg transition cursor-pointer">
+                                <i data-lucide="fingerprint" class="w-11 h-11"></i>
+                            </button>
+                        </div>
+                        <p id="fpStatusText" class="text-xs font-bold text-slate-600 mt-2">
+                            Mouse ile basılı tutun (1.1 sn)
+                        </p>
+                    </div>
+                </section>
+            </main>
+
+            <!-- EKRAN 1B: UYGULAMA İÇİ 4 ADIMLI REHBER KONTROL PANELİ -->
+            <main id="guideHubView" class="hidden flex-1 p-5 flex flex-col justify-between gap-4 overflow-y-auto bg-slate-50">
+                <div class="space-y-3">
+                    <!-- Üst Adım Çubuğu -->
+                    <div class="flex items-center justify-between">
+                        <button onclick="exitGuideToHome()" class="px-3 py-1.5 rounded-xl bg-white border border-slate-300 hover:bg-slate-100 text-xs font-extrabold text-slate-700 flex items-center gap-1 cursor-pointer">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            <span>Ana Ekran</span>
+                        </button>
+                        <div class="flex items-center gap-1.5">
+                            <button onclick="toggleFontSize()" id="fontToggleBtn" class="px-2.5 py-1.5 rounded-xl bg-amber-100 hover:bg-amber-200 text-amber-950 text-xs font-extrabold border border-amber-300 cursor-pointer">
+                                A+ Büyük Punto
+                            </button>
+                            <button onclick="speakCurrentHubStep()" class="p-2 rounded-xl bg-emerald-100 hover:bg-emerald-200 text-emerald-900 cursor-pointer" title="Sesli Dinle">
+                                <i data-lucide="volume-2" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4 Adım İlerleme Göstergesi -->
+                    <div class="grid grid-cols-4 gap-1.5">
+                        <button onclick="goToStep(1)" id="pillStep1" class="py-1.5 rounded-lg text-[11px] font-extrabold text-center transition cursor-pointer">1. Giriş</button>
+                        <button onclick="goToStep(2)" id="pillStep2" class="py-1.5 rounded-lg text-[11px] font-extrabold text-center transition cursor-pointer">2. Arama</button>
+                        <button onclick="goToStep(3)" id="pillStep3" class="py-1.5 rounded-lg text-[11px] font-extrabold text-center transition cursor-pointer">3. Seçim</button>
+                        <button onclick="goToStep(4)" id="pillStep4" class="py-1.5 rounded-lg text-[11px] font-extrabold text-center transition cursor-pointer">4. İndirme</button>
+                    </div>
+
+                    <!-- Aktif Adım Yönerge Kartı -->
+                    <div class="bg-white rounded-2xl border-2 border-slate-900 p-4 shadow-md">
+                        <span id="hubStepBadge" class="inline-block px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-extrabold mb-2">
+                            ADIM 1 / 4
+                        </span>
+                        <h2 id="hubStepTitle" class="text-xl font-black text-slate-900 leading-snug"></h2>
+                        <p id="hubStepDesc" class="text-base font-semibold text-slate-700 mt-2 leading-relaxed"></p>
+
+                        <!-- Adıma Özel Ara Bilgi / Kopyalanan Terim Kartı -->
+                        <div id="hubStepExtraBox" class="mt-4"></div>
+                    </div>
+                </div>
+
+                <!-- Alt Ana Aksiyon Butonu (Dış e-Devlet Ekranına Geçiş) -->
+                <div class="space-y-2">
+                    <button id="hubPrimaryActionBtn" onclick="triggerHubAction()" class="w-full py-4 px-4 rounded-2xl bg-[#d9252d] hover:bg-red-700 text-white font-extrabold text-base shadow-lg flex items-center justify-center gap-2 transition cursor-pointer">
+                        <span id="hubPrimaryActionLabel">Resmî e-Devlet Girişini Aç</span>
+                        <i data-lucide="external-link" class="w-5 h-5"></i>
+                    </button>
+                    <p class="text-[11px] text-center font-semibold text-slate-500">
+                        Dış ekrana geçtiğinizde sağ alttaki baloncukla dilediğiniz an buraya dönebilirsiniz.
+                    </p>
+                </div>
+            </main>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- KATMAN 2: GEÇİŞ ANİMASYONU EKRANI                         -->
+        <!-- ========================================================= -->
+        <div id="transitionOverlay" class="hidden absolute inset-0 z-40 bg-slate-950/95 text-white flex flex-col items-center justify-center p-6 text-center">
+            <div class="w-16 h-16 rounded-2xl bg-[#d9252d] flex items-center justify-center mb-4 shadow-xl animate-bounce">
+                <span class="text-3xl font-black">e</span>
+            </div>
+            <p class="text-xs font-extrabold uppercase tracking-widest text-amber-400 mb-1">Uygulama Dışı Yönlendirme</p>
+            <h3 id="transitionTitle" class="text-xl font-black leading-snug">e-GüvenliAdım'dan Çıkılıyor</h3>
+            <p id="transitionSub" class="text-sm text-slate-300 font-medium mt-2 max-w-xs">
+                Resmî e-Devlet Kapısı açılıyor; e-GüvenliAdım arka planda rehber modunda bekliyor...
+            </p>
+            <div class="mt-5 px-3.5 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-xs font-mono text-emerald-400" id="transitionUrl">
+                https://giris.turkiye.gov.tr/Giris/
+            </div>
+        </div>
+
+        <!-- ========================================================= -->
+        <!-- KATMAN 3: TAM EKRAN DIŞ e-DEVLET TARAYICI GÖRÜNÜMÜ        -->
+        <!-- (Adım 1, Adım 2, Adım 3 ve Adım 4 Tamamı Burada Çalışır)  -->
+        <!-- ========================================================= -->
+        <div id="externalBrowserLayer" class="hidden flex-1 flex flex-col bg-slate-100 overflow-hidden relative">
+            <!-- Mobil Tarayıcı Adres Çubuğu -->
+            <div class="bg-slate-900 text-white px-3.5 py-2.5 flex items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-2 bg-slate-800 px-3 py-1.5 rounded-xl flex-1 min-w-0 border border-slate-700">
+                    <i data-lucide="lock" class="w-3.5 h-3.5 text-emerald-400 shrink-0"></i>
+                    <span id="browserUrlText" class="text-xs font-mono text-slate-200 truncate">https://giris.turkiye.gov.tr/Giris/</span>
+                </div>
+                <span class="px-2 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[10px] font-extrabold shrink-0">
+                    Rehber Aktif
+                </span>
+            </div>
+
+            <!-- e-Devlet Üst Başlığı -->
+            <div class="bg-[#d9252d] text-white px-4 py-3 flex items-center justify-between shadow shrink-0">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg bg-white text-[#d9252d] font-black text-xl flex items-center justify-center shadow-sm">e</div>
+                    <div>
+                        <p class="text-sm font-black leading-none">e-Devlet Kapısı</p>
+                        <span class="text-[10px] text-red-100 font-medium">www.turkiye.gov.tr</span>
+                    </div>
+                </div>
+                <span id="externalStepTag" class="px-2.5 py-1 rounded-lg bg-red-900/70 text-xs font-extrabold">
+                    Adım 1 / 4
+                </span>
+            </div>
+
+            <!-- Üst Kayan Sesli/Görsel Rehber Bandı (e-GüvenliAdım Overlay) -->
+            <div class="bg-slate-900 text-white px-4 py-2.5 border-b-2 border-amber-400 flex items-center justify-between gap-2 shrink-0">
+                <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping shrink-0"></span>
+                    <p id="overlayGuideBannerText" class="text-xs font-bold text-amber-100 leading-snug">
+                        Kendi bilgilerinizle giriş yapın.
+                    </p>
+                </div>
+                <button onclick="speakOverlayBanner()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 shrink-0 cursor-pointer" title="Yönergeyi Sesli Dinle">
+                    <i data-lucide="volume-2" class="w-4 h-4"></i>
+                </button>
+            </div>
+
+            <!-- Dinamik Dış e-Devlet Sayfa İçeriği -->
+            <div id="externalPageContent" class="flex-1 p-4 overflow-y-auto pb-20">
+                <!-- Adım 1, 2, 3, 4 HTML'i dinamik yerleşir -->
+            </div>
+
+            <!-- HER ZAMAN ERİŞİLEBİLİR KAYAN BALONCUK (e-GüvenliAdım'a Dön) -->
+            <button onclick="returnToGuideHub()" class="absolute bottom-4 right-4 z-30 pl-3.5 pr-4 py-3 rounded-full bg-slate-900 hover:bg-slate-800 text-white border-2 border-amber-400 shadow-2xl flex items-center gap-2 transition active:scale-95 cursor-pointer">
+                <span class="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center shrink-0">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-white"></i>
+                </span>
+                <span class="text-xs font-extrabold tracking-tight">e-GüvenliAdım'a Dön</span>
+            </button>
+        </div>
+
+        <!-- Alt Bilgi -->
+        <footer class="bg-slate-100 px-5 py-2 border-t border-slate-200 text-center shrink-0">
+            <p class="text-[11px] font-semibold text-slate-500">
+                e-GüvenliAdım • Biyometrik Onaylı & Dış Ekran Rehber Prototipi
+            </p>
+        </footer>
+    </div>
+
+    <script>
+        let companionActive = true;
+        let currentSpokenText = "";
+        let activePlan = null;
+        let currentStep = 1; // 1..4
+        let step4SubState = 'select'; // 'select' (4A) -> 'download' (4B) -> 'done'
+        let extraLargeFont = true;
+        let clipboardTerm = "";
+
+        // Parmak izi basılı tutma değişkenleri
+        let holdInterval = null;
+        const HOLD_DURATION_MS = 1100;
+        const CIRCUMFERENCE = 2 * Math.PI * 44;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+        });
+
+        function refreshIcons() {
+            if (window.lucide) lucide.createIcons();
+        }
+
+        function toggleCompanionMode() {
+            companionActive = !companionActive;
+            document.getElementById('companionLabel').textContent = companionActive ? "Refakatçi: Aktif" : "Refakatçi: Kapalı";
+        }
+
+        function runPreset(text) {
+            document.getElementById('queryInput').value = text;
+            analyzeQuery();
+        }
+
+        function startVoiceRecognition() {
+            const statusEl = document.getElementById('voiceStatus');
+            const micBtn = document.getElementById('micBtn');
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+            if (!SpeechRecognition) {
+                statusEl.textContent = "Tarayıcı mikrofonu desteklemiyor; metin kutusunu veya örnekleri kullanabilirsiniz.";
+                statusEl.className = "text-xs font-semibold text-amber-700";
+                return;
+            }
+
+            const recognition = new SpeechRecognition();
+            recognition.lang = 'tr-TR';
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                micBtn.classList.add('listening-active');
+                statusEl.textContent = "Dinleniyor... Lütfen ihtiyacınızı söyleyin.";
+                statusEl.className = "text-xs font-bold text-red-600";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('queryInput').value = transcript;
+                statusEl.textContent = "Ses algılandı: \"" + transcript + "\"";
+                statusEl.className = "text-xs font-semibold text-emerald-700";
+                analyzeQuery();
+            };
+
+            recognition.onerror = () => {
+                statusEl.textContent = "Mikrofon izni alınamadı; aşağıdan yazarak veya örnek seçerek deneyebilirsiniz.";
+                statusEl.className = "text-xs font-semibold text-amber-700";
+            };
+
+            recognition.onend = () => {
+                micBtn.classList.remove('listening-active');
+            };
+
+            recognition.start();
+        }
+
+        // Türkçe Akıllı Niyet ve Risk Analizi
+        function analyzeQuery() {
+            const rawQuery = document.getElementById('queryInput').value.trim();
+            if (!rawQuery) return;
+
+            const q = rawQuery.toLowerCase();
+            const card = document.getElementById('resultCard');
+            const badge = document.getElementById('riskBadge');
+            const title = document.getElementById('intentTitle');
+            const summary = document.getElementById('simplifiedSummary');
+            const fpCircle = document.getElementById('fpProgressCircle');
+
+            card.classList.remove('hidden', 'bg-emerald-50/60', 'border-emerald-300', 'bg-red-50', 'border-red-400');
+            resetFingerprintUI();
+
+            const isRisky = q.includes('acil') || q.includes('link') || q.includes('icra') || q.includes('hemen') || q.includes('tıkla') || q.includes('iban') || q.includes('haciz');
+
+            if (isRisky) {
+                card.classList.add('bg-red-50', 'border-red-400');
+                badge.className = "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold mb-1.5 bg-red-600 text-white";
+                badge.innerHTML = '<i data-lucide="alert-triangle" class="w-3.5 h-3.5"></i> YÜKSEK RİSK • SAHTE BAĞLANTI UYARISI';
+                title.textContent = "Şüpheli Mesaj Engellendi — Resmî Kontrol";
+                summary.textContent = "Mesajdaki linke tıklamanız engellendi. Resmi e-Devlet üzerinden kendi adınıza açılmış dava/icra olup olmadığını kontrol etmek için parmak izine basılı tutun.";
+                fpCircle.setAttribute('stroke', '#dc2626');
+
+                activePlan = {
+                    isRisk: true,
+                    searchTerm: "Dava Dosyası Sorgulama",
+                    targetService: "UYAP Dava Dosyası Sorgulama",
+                    ministry: "Adalet Bakanlığı",
+                    distractors: [
+                        { title: "Mahkeme Ceza ve Harç Ödeme", org: "Gelir İdaresi Başkanlığı" },
+                        { title: "İcra Dairesi İletişim Bilgileri", org: "Adalet Bakanlığı" },
+                        { title: "Trafik Cezası Borç Sorgulama", org: "Emniyet Genel Müdürlüğü" }
+                    ],
+                    optionQuestion: "Sorgulama Kapsamı Seçimi:",
+                    targetOption: "Tüm Mahkeme ve İcra Dosyalarım",
+                    otherOption: "Sadece Arşivlenmiş Dosyalar",
+                    optionWhy: "Adınıza açılmış güncel bir icra veya dava olup olmadığını tek ekranda görmek için bu seçeneği işaretleyin.",
+                    docReadyTitle: "Resmî UYAP Kayıt Sonucu Hazır",
+                    docReadySub: "Adınıza açılmış aktif dava veya icra dosyası bulunmamaktadır."
+                };
+            } else {
+                card.classList.add('bg-emerald-50/60', 'border-emerald-300');
+                badge.className = "inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-extrabold mb-1.5 bg-emerald-100 text-emerald-900";
+                badge.innerHTML = '<i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> RUTİN İŞLEM • ANOMALİ YOK';
+                fpCircle.setAttribute('stroke', '#10b981');
+
+                if (q.includes('sabıka') || q.includes('adli sicil') || q.includes('sicil')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Adli Sicil Kaydı",
+                        targetService: "Adli Sicil Kaydı Sorgulama",
+                        ministry: "Adalet Bakanlığı",
+                        distractors: [
+                            { title: "Mahkeme Dava Dosyası Sorgulama", org: "Adalet Bakanlığı" },
+                            { title: "Nüfus Kayıt Örneği Belgesi", org: "Nüfus ve Vatandaşlık İşleri" },
+                            { title: "Özel Güvenlik Kimlik Sorgulama", org: "Emniyet Genel Müdürlüğü" }
+                        ],
+                        optionQuestion: "Belgenin Verileceği Kurum / Kişi Seçimi:",
+                        targetOption: "Kendisi (Resmî Kurum / İş Başvurusu)",
+                        otherOption: "Veli / Vasi Adına",
+                        optionWhy: "Kendi sabıka kaydınızı barkodlu PDF olarak indirmek için 'Kendisi' seçeneğine tıklayın.",
+                        docReadyTitle: "Barkodlu Adli Sicil Kaydı Oluşturuldu",
+                        docReadySub: "Belge Sahibi: Kendisi • Barkod Doğrulandı"
+                    };
+                } else if (q.includes('sgk') || q.includes('hizmet') || q.includes('emekli') || q.includes('döküm')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "SGK Hizmet Dökümü",
+                        targetService: "SGK Tescil ve Hizmet Dökümü",
+                        ministry: "Sosyal Güvenlik Kurumu",
+                        distractors: [
+                            { title: "4A Emekli Aylık Bilgisi", org: "Sosyal Güvenlik Kurumu" },
+                            { title: "İşe Giriş Çıkış Bildirgesi", org: "Sosyal Güvenlik Kurumu" },
+                            { title: "Genel Sağlık Sigortası Tescil", org: "Sosyal Güvenlik Kurumu" }
+                        ],
+                        optionQuestion: "Döküm Türü Seçimi:",
+                        targetOption: "Tüm Sigorta Kolları (Barkodlu Belge)",
+                        otherOption: "Sadece Son 1 Yıl Özeti",
+                        optionWhy: "Emeklilik ve toplam prim günlerinizi eksiksiz görmek için bu seçeneği işaretleyin.",
+                        docReadyTitle: "Barkodlu SGK Hizmet Dökümü Hazır",
+                        docReadySub: "Toplam Prim: 5.420 Gün • Barkodlu PDF"
+                    };
+                } else if (q.includes('asker')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Askerlik Durum Belgesi",
+                        targetService: "Askerlik Durum Belgesi Sorgulama",
+                        ministry: "Milli Savunma Bakanlığı",
+                        distractors: [
+                            { title: "Askerlik Celp ve Sevk Bilgisi", org: "Milli Savunma Bakanlığı" },
+                            { title: "Yedek Subay Sınıflandırma Sonucu", org: "Milli Savunma Bakanlığı" },
+                            { title: "Sefer Görev Emri Sorgulama", org: "Milli Savunma Bakanlığı" }
+                        ],
+                        optionQuestion: "Belge Kullanım Amacı Seçimi:",
+                        targetOption: "Kendisi (Resmî Kurum / Okul / İş)",
+                        otherOption: "Kurum Temsilcisi",
+                        optionWhy: "Kendi askerlik durum belgenizi oluşturmak için 'Kendisi' seçeneğine tıklayın.",
+                        docReadyTitle: "Barkodlu Askerlik Durum Belgesi Hazır",
+                        docReadySub: "Belge Sahibi: Kendisi • Barkodlu PDF"
+                    };
+                } else if (q.includes('tapu') || q.includes('taşınmaz') || q.includes('arsa') || q.includes('ev')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Tapu Bilgileri Sorgulama",
+                        targetService: "Tapu Bilgileri Sorgulama",
+                        ministry: "Tapu ve Kadastro Genel Müdürlüğü",
+                        distractors: [
+                            { title: "Tapu Taşınmaz Beyan İşlemleri", org: "Tapu ve Kadastro Genel Müdürlüğü" },
+                            { title: "Emlak Vergisi Bildirim Sureti", org: "Belediye Hizmetleri" },
+                            { title: "Web Tapu Randevu Başvurusu", org: "Tapu ve Kadastro Genel Müdürlüğü" }
+                        ],
+                        optionQuestion: "Taşınmaz Kayıt Seçimi:",
+                        targetOption: "Aktif Tapu Kayıtlarım (Kendisi)",
+                        otherOption: "Hisseli Pasif Kayıtlar",
+                        optionWhy: "Üzerinize kayıtlı güncel tapuları ve belgeyi görmek için bu seçeneği işaretleyin.",
+                        docReadyTitle: "Barkodlu Tapu Kayıt Belgesi Hazır",
+                        docReadySub: "Belge Sahibi: Kendisi • Barkodlu PDF"
+                    };
+                } else if (q.includes('öğrenci') || q.includes('ogrenci') || q.includes('okul belgesi') || q.includes('üniversite')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Öğrenci Belgesi",
+                        targetService: "Öğrenci Belgesi Sorgulama",
+                        ministry: "Yükseköğretim Kurulu Başkanlığı (YÖK)",
+                        distractors: [
+                            { title: "Öğrenci Belgesi Sorgulama (MEB)", org: "Milli Eğitim Bakanlığı" },
+                            { title: "Yükseköğretim Mezun Belgesi Sorgulama", org: "Yükseköğretim Kurulu Başkanlığı" },
+                            { title: "KYK Burs / Öğrenim Kredisi Başvurusu", org: "Gençlik ve Spor Bakanlığı" }
+                        ],
+                        optionQuestion: "Eğitim Birimi / Belge Seçimi:",
+                        targetOption: "Aktif Öğrencilik Kaydım (Barkodlu PDF)",
+                        otherOption: "Pasif / Mezuniyet Öncesi Kayıtlar",
+                        optionWhy: "Aktif öğrenci belgenizi barkodlu PDF olarak oluşturmak için bu seçeneğe dokunun.",
+                        docReadyTitle: "Barkodlu Öğrenci Belgesi Hazır",
+                        docReadySub: "Kurum: Yükseköğretim Kurulu • Barkod Doğrulandı"
+                    };
+                } else if (q.includes('mezun') || q.includes('diploma')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Mezun Belgesi",
+                        targetService: "Yükseköğretim Mezun Belgesi Sorgulama",
+                        ministry: "Yükseköğretim Kurulu Başkanlığı (YÖK)",
+                        distractors: [
+                            { title: "Lise Mezuniyet Belgesi Sorgulama", org: "Milli Eğitim Bakanlığı" },
+                            { title: "Öğrenci Belgesi Sorgulama", org: "Yükseköğretim Kurulu Başkanlığı" },
+                            { title: "YÖK Denklik Başvurusu Sorgulama", org: "Yükseköğretim Kurulu Başkanlığı" }
+                        ],
+                        optionQuestion: "Diploma / Mezuniyet Kaydı Seçimi:",
+                        targetOption: "Lisans / Ön Lisans Mezuniyet Belgesi",
+                        otherOption: "Kurum İçi Onay Sureti",
+                        optionWhy: "Resmî başvurularda geçerli barkodlu diplomanızı indirmek için seçin.",
+                        docReadyTitle: "Barkodlu Mezuniyet Belgesi Hazır",
+                        docReadySub: "Belge Sahibi: Kendisi • Barkodlu PDF"
+                    };
+                } else if (q.includes('nüfus') || q.includes('nufus') || q.includes('vukuatlı') || q.includes('aile')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Nüfus Kayıt Örneği",
+                        targetService: "Nüfus Kayıt Örneği Belgesi Sorgulama",
+                        ministry: "Nüfus ve Vatandaşlık İşleri Genel Müdürlüğü",
+                        distractors: [
+                            { title: "Yerleşim Yeri (İkametgâh) Belgesi", org: "Nüfus ve Vatandaşlık İşleri" },
+                            { title: "Alt-Üst Soy Bilgisi Sorgulama", org: "Nüfus ve Vatandaşlık İşleri" },
+                            { title: "T.C. Kimlik Kartı Başvuru Takibi", org: "Nüfus ve Vatandaşlık İşleri" }
+                        ],
+                        optionQuestion: "Nüfus Kayıt Türü Seçimi:",
+                        targetOption: "Nüfus Aile (Kendisi / Resmî Kurum)",
+                        otherOption: "Sadece Kişi Kaydı",
+                        optionWhy: "Aile bireylerini ve güncel nüfus kaydınızı içeren belge için bu seçeneği işaretleyin.",
+                        docReadyTitle: "Barkodlu Nüfus Kayıt Örneği Hazır",
+                        docReadySub: "Belge Sahibi: Kendisi • Barkodlu PDF"
+                    };
+                } else if (q.includes('ceza') || q.includes('trafik') || q.includes('plaka') || q.includes('araç') || q.includes('arac')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Araç Plakasına Yazılan Ceza",
+                        targetService: "Araç Plakasına Yazılan Ceza Sorgulama (Gerçek Kişi)",
+                        ministry: "Emniyet Genel Müdürlüğü",
+                        distractors: [
+                            { title: "Adıma Tescilli Araç Sorgulama", org: "Emniyet Genel Müdürlüğü" },
+                            { title: "Sürücü Belgesi Ceza Puanı Sorgulama", org: "Emniyet Genel Müdürlüğü" },
+                            { title: "HGS İhlalli Geçiş Bilgileri", org: "PTT Genel Müdürlüğü" }
+                        ],
+                        optionQuestion: "Sorgulama Kapsamı Seçimi:",
+                        targetOption: "Son 1 Yıl ve Ödenmemiş Cezalarım",
+                        otherOption: "Tüzel Kişi / Şirket Araçları",
+                        optionWhy: "Adınıza kayıtlı plakalara kesilmiş güncel trafik cezalarını görmek için seçin.",
+                        docReadyTitle: "Resmî Trafik Ceza Dökümü Hazır",
+                        docReadySub: "Emniyet Genel Müdürlüğü • Barkodlu Çıktı"
+                    };
+                } else if (q.includes('vergi') || q.includes('borç') || q.includes('borc')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Vergi Borcu Sorgulama",
+                        targetService: "Vergi Borcu Sorgulama ve Ödeme",
+                        ministry: "Gelir İdaresi Başkanlığı",
+                        distractors: [
+                            { title: "Vergi Levhası Sorgulama", org: "Gelir İdaresi Başkanlığı" },
+                            { title: "Motorlu Taşıtlar Vergisi (MTV) Sorgulama", org: "Gelir İdaresi Başkanlığı" },
+                            { title: "e-Tebligat Görüntüleme", org: "Gelir İdaresi Başkanlığı" }
+                        ],
+                        optionQuestion: "Borç Dökümü Seçimi:",
+                        targetOption: "Vadesi Gelmiş ve Gelecek Tüm Borçlarım",
+                        otherOption: "Sadece Yapılandırılmış Borçlar",
+                        optionWhy: "Tüm vergi dairesi borçlarınızı tek ekranda listelemek için işaretleyin.",
+                        docReadyTitle: "Resmî Vergi Borcu Dökümü Hazır",
+                        docReadySub: "Gelir İdaresi Başkanlığı • Barkodlu PDF"
+                    };
+                } else if (q.includes('ikamet') || q.includes('adres') || q.includes('yerleşim')) {
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: "Yerleşim Yeri (İkametgâh) Belgesi",
+                        targetService: "Yerleşim Yeri (İkametgâh) Belgesi Sorgulama",
+                        ministry: "Nüfus ve Vatandaşlık İşleri Genel Müdürlüğü",
+                        distractors: [
+                            { title: "Nüfus Kayıt Örneği Belgesi Sorgulama", org: "Nüfus ve Vatandaşlık İşleri" },
+                            { title: "Adres Değişikliği Bildirimi", org: "Nüfus ve Vatandaşlık İşleri" },
+                            { title: "Aynı Hanede İkamet Eden Kişi Belgesi", org: "Nüfus ve Vatandaşlık İşleri" }
+                        ],
+                        optionQuestion: "Belgenin Verileceği Kişi Seçimi:",
+                        targetOption: "Kendisi",
+                        otherOption: "Veli / Vasi",
+                        optionWhy: "İkametgâh belgenizi kendi adınıza almak için 'Kendisi' seçeneğine tıklayın.",
+                        docReadyTitle: "Barkodlu Yerleşim Yeri Belgesi Hazır",
+                        docReadySub: "Belge Sahibi: Kendisi • Barkodlu PDF"
+                    };
+                } else {
+                    // Konuşma dili eklerini ("çıkartıcam", "alacağım", "lazım", "bi bakayım" vb.) temizle
+                    const extractedCore = extractCoreServiceTerm(rawQuery);
+                    activePlan = {
+                        isRisk: false,
+                        searchTerm: extractedCore,
+                        targetService: `${extractedCore} Sorgulama`,
+                        ministry: "e-Devlet Resmî Hizmet Kapısı",
+                        distractors: [
+                            { title: `${extractedCore} Başvuru Takibi`, org: "İlgili Kamu Kurumu" },
+                            { title: "Nüfus Kayıt Örneği Belgesi Sorgulama", org: "Nüfus ve Vatandaşlık İşleri" },
+                            { title: "e-Devlet Kapısı Barkodlu Belge Doğrulama", org: "Cumhurbaşkanlığı Dijital Dönüşüm Ofisi" }
+                        ],
+                        optionQuestion: "Belgenin Verileceği Kişi Seçimi:",
+                        targetOption: "Kendisi (Barkodlu Resmî Belge)",
+                        otherOption: "Veli / Vasi",
+                        optionWhy: "Belgeyi kendi adınıza barkodlu PDF olarak oluşturmak için bu seçeneğe dokunun.",
+                        docReadyTitle: `Barkodlu ${extractedCore} Hazır`,
+                        docReadySub: "Belge Sahibi: Kendisi • Barkodlu PDF"
+                    };
+                }
+
+                title.textContent = activePlan.targetService;
+                summary.textContent = `"${activePlan.targetService}" (${activePlan.ministry}) için 4 adımlı dış e-Devlet rehberi hazırlandı. Başlatmak için parmak izine basılı tutun.`;
+            }
+
+            refreshIcons();
+            currentSpokenText = `${title.textContent} bulundu. Başlamak için parmak izi işaretine basılı tutun.`;
+            speakText(currentSpokenText);
+        }
+
+        // Günlük konuşma cümlesinden gereksiz fiil ve ekleri temizleyip resmi arama terimini çıkarır
+        function extractCoreServiceTerm(sentence) {
+            const fillerPattern = /\b(çıkartıcam|çıkartacağım|çıkaracağım|çıkarıcam|alacağım|alıcam|lazım|istiyorum|indireceğim|indirecem|bakacağım|bakıcam|bakmam|sorgulamak|sorgulama|şu|bi|bir|benim|bana|için|lütfen|nereden|nasıl)\b/gi;
+            let cleaned = sentence.replace(fillerPattern, ' ').replace(/[?.!,]/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!cleaned) cleaned = sentence.trim();
+            return cleaned.split(' ').map(w => w.charAt(0).toLocaleUpperCase('tr-TR') + w.slice(1).toLocaleLowerCase('tr-TR')).join(' ');
+        }
+
+        // Parmak İzi Basılı Tutma Kontrolü
+        function startFingerprintHold(e) {
+            if (e) e.preventDefault();
+            if (holdInterval || !activePlan) return;
+
+            const startTime = Date.now();
+            const circle = document.getElementById('fpProgressCircle');
+            const statusText = document.getElementById('fpStatusText');
+            const btn = document.getElementById('fingerprintBtn');
+
+            btn.classList.add('scale-95');
+            statusText.textContent = "Doğrulanıyor, bırakmayın...";
+            statusText.className = "text-xs font-extrabold text-emerald-700 mt-2";
+
+            holdInterval = setInterval(() => {
+                const elapsed = Date.now() - startTime;
+                const ratio = Math.min(elapsed / HOLD_DURATION_MS, 1);
+                circle.setAttribute('stroke-dashoffset', CIRCUMFERENCE * (1 - ratio));
+
+                if (ratio >= 1) {
+                    clearInterval(holdInterval);
+                    holdInterval = null;
+                    document.getElementById('fpStatusText').textContent = "✓ Biyometrik Onay Başarılı!";
+                    setTimeout(() => {
+                        currentStep = 1;
+                        step4SubState = 'select';
+                        showGuideHub();
+                    }, 220);
+                }
+            }, 30);
+        }
+
+        function cancelFingerprintHold() {
+            if (!holdInterval) return;
+            clearInterval(holdInterval);
+            holdInterval = null;
+            resetFingerprintUI();
+        }
+
+        function resetFingerprintUI() {
+            const circle = document.getElementById('fpProgressCircle');
+            const statusText = document.getElementById('fpStatusText');
+            const btn = document.getElementById('fingerprintBtn');
+            if (circle) circle.setAttribute('stroke-dashoffset', CIRCUMFERENCE);
+            if (btn) btn.classList.remove('scale-95');
+            if (statusText) {
+                statusText.textContent = "Mouse ile basılı tutun (1.1 sn)";
+                statusText.className = "text-xs font-bold text-slate-600 mt-2";
+            }
+        }
+
+        // =========================================================
+        // UYGULAMA İÇİ REHBER PANELİ (HUB) YÖNETİMİ
+        // =========================================================
+        function showGuideHub() {
+            document.getElementById('assistantHomeView').classList.add('hidden');
+            document.getElementById('externalBrowserLayer').classList.add('hidden');
+            document.getElementById('inAppLayer').classList.remove('hidden');
+            document.getElementById('guideHubView').classList.remove('hidden');
+            renderHubStep();
+        }
+
+        function exitGuideToHome() {
+            window.speechSynthesis.cancel();
+            document.getElementById('guideHubView').classList.add('hidden');
+            document.getElementById('externalBrowserLayer').classList.add('hidden');
+            document.getElementById('inAppLayer').classList.remove('hidden');
+            document.getElementById('assistantHomeView').classList.remove('hidden');
+            resetFingerprintUI();
+        }
+
+        function goToStep(stepNum) {
+            currentStep = stepNum;
+            if (stepNum === 4) step4SubState = 'select';
+            renderHubStep();
+        }
+
+        function renderHubStep() {
+            if (!activePlan) return;
+
+            // Üst 4 adım sekmesini güncelle
+            for (let i = 1; i <= 4; i++) {
+                const pill = document.getElementById(`pillStep${i}`);
+                if (i === currentStep) {
+                    pill.className = "py-1.5 rounded-lg text-[11px] font-extrabold text-center bg-slate-900 text-white shadow cursor-pointer";
+                } else if (i < currentStep) {
+                    pill.className = "py-1.5 rounded-lg text-[11px] font-extrabold text-center bg-emerald-100 text-emerald-900 border border-emerald-300 cursor-pointer";
+                } else {
+                    pill.className = "py-1.5 rounded-lg text-[11px] font-bold text-center bg-slate-200 text-slate-600 cursor-pointer";
+                }
+            }
+
+            const badge = document.getElementById('hubStepBadge');
+            const title = document.getElementById('hubStepTitle');
+            const desc = document.getElementById('hubStepDesc');
+            const extraBox = document.getElementById('hubStepExtraBox');
+            const actionLabel = document.getElementById('hubPrimaryActionLabel');
+
+            badge.textContent = `ADIM ${currentStep} / 4`;
+
+            if (currentStep === 1) {
+                title.textContent = "1. Adım: Resmî e-Devlet Girişi";
+                desc.textContent = "Şifreniz bu uygulamada tutulmaz. Şimdi resmî e-Devlet giriş sayfasına geçip kendi bilgilerinizle oturum açın.";
+                extraBox.innerHTML = `
+                    <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs font-bold text-emerald-950">
+                        <i data-lucide="shield-check" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+                        <span>Giriş yaptıktan sonra sistem sizi otomatik olarak 2. adıma (Arama) aktaracaktır.</span>
+                    </div>
+                `;
+                actionLabel.textContent = "Resmî e-Devlet Girişini Aç";
+            } else if (currentStep === 2) {
+                title.textContent = "2. Adım: Terimi Kopyala ve Ara";
+                desc.textContent = `Aşağıdaki tuşa bastığınızda "${activePlan.searchTerm}" kelimesi kopyalanacak ve e-Devlet arama sayfasında sarı Yapıştır butonu çıkacaktır.`;
+                extraBox.innerHTML = `
+                    <div class="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 flex items-center justify-between gap-2">
+                        <div>
+                            <span class="text-[10px] font-extrabold uppercase text-amber-800 block">Kopyalanacak Arama Terimi</span>
+                            <span class="text-sm font-black text-slate-950">${activePlan.searchTerm}</span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg bg-amber-400 text-slate-950 text-xs font-black">Hazır</span>
+                    </div>
+                `;
+                actionLabel.textContent = "Terimi Kopyala ve e-Devlet Aramayı Aç";
+            } else if (currentStep === 3) {
+                title.textContent = "3. Adım: Doğru Hizmeti Seçin";
+                desc.textContent = `Arama sonuçlarında benzer kurumlar çıkacaktır. e-Devlet ekranında kırmızı çerçeveyle işaretlediğimiz "${activePlan.targetService}" satırına dokunun.`;
+                extraBox.innerHTML = `
+                    <div class="p-3 rounded-xl bg-slate-100 border border-slate-300 space-y-1">
+                        <span class="text-[10px] font-extrabold uppercase text-slate-500 block">İşaretlenecek Hedef Hizmet</span>
+                        <p class="text-sm font-black text-slate-900">${activePlan.targetService}</p>
+                        <p class="text-xs font-semibold text-slate-600">${activePlan.ministry}</p>
+                    </div>
+                `;
+                actionLabel.textContent = "e-Devlet Sonuç Sayfasına Geç";
+            } else if (currentStep === 4) {
+                title.textContent = "4. Adım: Form Seçimi ve PDF İndirme";
+                desc.textContent = "Açılan e-Devlet belge sayfasında önce işaretli seçeneğe tıklayın, ardından parlayan 'Dosyayı İndir (PDF)' butonuna basarak belgenizi kaydedin.";
+                extraBox.innerHTML = `
+                    <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-300 space-y-1.5 text-xs font-bold text-emerald-950">
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[11px]">1</span>
+                            <span>Seçenek: <strong>${activePlan.targetOption}</strong></span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <span class="w-5 h-5 rounded-full bg-amber-400 text-slate-950 font-black flex items-center justify-center text-[11px]">2</span>
+                            <span>İşlem: <strong>Dosyayı İndir (PDF)</strong></span>
+                        </div>
+                    </div>
+                `;
+                actionLabel.textContent = "e-Devlet Belge Ekranına Geç";
+            }
+
+            applyFontScale();
+            refreshIcons();
+            speakCurrentHubStep();
+        }
+
+        function triggerHubAction() {
+            if (!activePlan) return;
+            if (currentStep === 1) {
+                openExternalStepWithTransition(1, "Resmî e-Devlet Girişine Geçiliyor...", "https://giris.turkiye.gov.tr/Giris/");
+            } else if (currentStep === 2) {
+                clipboardTerm = activePlan.searchTerm;
+                tryCopyText(clipboardTerm);
+                openExternalStepWithTransition(2, `"${clipboardTerm}" Kopyalandı — Arama Açılıyor...`, "https://www.turkiye.gov.tr/");
+            } else if (currentStep === 3) {
+                openExternalStepWithTransition(3, "e-Devlet Arama Sonuçları Açılıyor...", `https://www.turkiye.gov.tr/arama?aranan=${encodeURIComponent(activePlan.searchTerm)}`);
+            } else if (currentStep === 4) {
+                step4SubState = 'select';
+                openExternalStepWithTransition(4, "e-Devlet Hizmet Sayfası Açılıyor...", "https://www.turkiye.gov.tr/hizmet-belge-sorgulama");
+            }
+        }
+
+        function tryCopyText(text) {
+            const temp = document.createElement('textarea');
+            temp.value = text;
+            document.body.appendChild(temp);
+            temp.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(temp);
+        }
+
+        // =========================================================
+        // DIŞ e-DEVLET EKRANI VE GEÇİŞ YÖNETİMİ (ADIM 1, 2, 3, 4)
+        // =========================================================
+        function openExternalStepWithTransition(stepNum, titleText, urlText) {
+            currentStep = stepNum;
+            const trans = document.getElementById('transitionOverlay');
+            document.getElementById('transitionTitle').textContent = titleText;
+            document.getElementById('transitionUrl').textContent = urlText;
+            trans.classList.remove('hidden');
+
+            setTimeout(() => {
+                trans.classList.add('hidden');
+                renderExternalBrowserStep(stepNum, urlText);
+            }, 650);
+        }
+
+        function renderExternalBrowserStep(stepNum, urlText) {
+            document.getElementById('inAppLayer').classList.add('hidden');
+            document.getElementById('externalBrowserLayer').classList.remove('hidden');
+            document.getElementById('browserUrlText').textContent = urlText;
+            document.getElementById('externalStepTag').textContent = `Adım ${stepNum} / 4`;
+
+            const banner = document.getElementById('overlayGuideBannerText');
+            const container = document.getElementById('externalPageContent');
+
+            if (stepNum === 1) {
+                banner.textContent = "Adım 1: Kendi T.C. Kimlik ve şifrenizle giriş yapın (e-GüvenliAdım şifrenizi görmez).";
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-300 shadow-md overflow-hidden">
+                        <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                            <span class="text-sm font-black text-slate-800">Kimlik Doğrulama Sistemi</span>
+                            <button onclick="fillDemoCredentials()" class="px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 border border-amber-300 text-[11px] font-extrabold text-amber-950 cursor-pointer">
+                                Hızlı Demo Bilgisi Doldur
+                            </button>
+                        </div>
+                        <form onsubmit="submitExternalLogin(event)" class="p-4 space-y-3">
+                            <div class="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-900 flex items-center gap-2">
+                                <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600 shrink-0"></i>
+                                <span>Bu ekran resmî e-Devlet girişini temsil eder; şifreniz kaydedilmez.</span>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-extrabold text-slate-700 mb-1">* T.C. Kimlik Numarası</label>
+                                <input id="extTcInput" type="text" maxlength="11" placeholder="11 haneli T.C. Kimlik No" required
+                                    class="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-300 focus:border-[#d9252d] focus:outline-none text-sm font-bold text-slate-900">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-extrabold text-slate-700 mb-1">* e-Devlet Şifresi</label>
+                                <input id="extPassInput" type="password" placeholder="e-Devlet şifreniz" required
+                                    class="w-full px-3.5 py-2.5 rounded-xl border-2 border-slate-300 focus:border-[#d9252d] focus:outline-none text-sm font-bold text-slate-900">
+                            </div>
+                            <button id="extLoginSubmitBtn" type="submit" class="w-full py-3 rounded-xl bg-[#d9252d] hover:bg-red-700 text-white font-extrabold text-base shadow-md flex items-center justify-center gap-2 transition cursor-pointer">
+                                <span>Giriş Yap</span>
+                                <i data-lucide="log-in" class="w-4 h-4"></i>
+                            </button>
+                        </form>
+                    </div>
+                `;
+            } else if (stepNum === 2) {
+                clipboardTerm = activePlan.searchTerm;
+                banner.textContent = `Adım 2: Sarı 'Yapıştır' tuşuna basıp "${clipboardTerm}" terimini aratın.`;
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-300 shadow-md p-4 space-y-4">
+                        <div class="text-center space-y-1">
+                            <h3 class="text-base font-black text-slate-900">Merhaba, Size Nasıl Yardım Edebiliriz?</h3>
+                            <p class="text-xs font-medium text-slate-500">Arama kutusunun yanındaki sarı Yapıştır tuşuna dokunun.</p>
+                        </div>
+
+                        <!-- Arama Kutusu + Tek Tuşla Sarı Yapıştır Butonu -->
+                        <div class="space-y-2.5">
+                            <div class="flex items-center gap-1.5 p-1.5 rounded-2xl border-2 border-[#d9252d] bg-slate-50 shadow-sm">
+                                <i data-lucide="search" class="w-5 h-5 text-slate-400 ml-2 shrink-0"></i>
+                                <input id="extSearchInput" type="text" placeholder="Hizmet, kurum adı yazın..."
+                                    class="flex-1 bg-transparent py-2 text-sm font-extrabold text-slate-900 focus:outline-none min-w-0">
+                                <button id="yellowPasteBtn" onclick="pasteIntoExternalSearch()" class="px-3 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs shadow flex items-center gap-1 shrink-0 transition cursor-pointer target-highlight">
+                                    <i data-lucide="clipboard-paste" class="w-4 h-4"></i>
+                                    <span>Yapıştır</span>
+                                </button>
+                            </div>
+
+                            <button id="extSearchGoBtn" onclick="executeExternalSearch()" class="w-full py-3 rounded-xl bg-slate-300 text-slate-500 font-extrabold text-sm flex items-center justify-center gap-2 transition cursor-not-allowed" disabled>
+                                <i data-lucide="search" class="w-4 h-4"></i>
+                                <span>e-Devlet'te Ara</span>
+                            </button>
+                        </div>
+
+                        <!-- Sık Kullanılanlar (Soluk Arka Plan) -->
+                        <div class="pt-2 border-t border-slate-200 opacity-45 select-none">
+                            <p class="text-[11px] font-bold text-slate-500 mb-2">Popüler Hizmetler</p>
+                            <div class="grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
+                                <div class="p-2 rounded-lg bg-slate-100">HGS Bakiye Sorgulama</div>
+                                <div class="p-2 rounded-lg bg-slate-100">Araç Plaka Ceza</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (stepNum === 3) {
+                banner.textContent = `Adım 3: Kırmızı çerçeveli "${activePlan.targetService}" seçeneğine tıklayın.`;
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-300 shadow-md overflow-hidden">
+                        <!-- Arama Başlık Özeti -->
+                        <div class="bg-slate-50 px-4 py-2.5 border-b border-slate-200 flex items-center justify-between">
+                            <span class="text-xs font-bold text-slate-600">Aranan: <strong class="text-slate-950">"${activePlan.searchTerm}"</strong></span>
+                            <span class="text-[11px] font-extrabold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded">1 Eşleşme Vurgulandı</span>
+                        </div>
+
+                        <!-- Soluklaştırılmış Filtre Sekmeleri -->
+                        <div class="px-4 py-2 bg-slate-100 border-b border-slate-200 flex gap-2 text-[11px] font-bold text-slate-400 opacity-50 select-none">
+                            <span class="px-2.5 py-0.5 bg-white rounded-md">Hizmetler</span>
+                            <span class="px-2.5 py-0.5 bg-white rounded-md">Kurumlar</span>
+                            <span class="px-2.5 py-0.5 bg-white rounded-md">Belediyeler</span>
+                        </div>
+
+                        <div class="p-4 space-y-3">
+                            <!-- HEDEF HİZMET KARTI (BURAYA TIKLA / BU SEÇENEĞE TIKLAYIN) -->
+                            <div class="relative pt-3">
+                                <span class="top-0 right-2 absolute z-10 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#d9252d] text-white text-[11px] font-black shadow-lg animate-bounce">
+                                    <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5"></i>
+                                    <span>BU SEÇENEĞE TIKLAYIN</span>
+                                </span>
+                                <button onclick="selectTargetServiceInExternal()" class="w-full text-left p-4 rounded-2xl bg-amber-50 hover:bg-amber-100 border-2 border-[#d9252d] target-highlight transition cursor-pointer flex items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-base font-black text-slate-950 leading-snug">${activePlan.targetService}</p>
+                                        <p class="text-xs font-bold text-slate-600 mt-1">${activePlan.ministry}</p>
+                                    </div>
+                                    <div class="w-10 h-10 rounded-full bg-[#d9252d] text-white flex items-center justify-center shrink-0 shadow">
+                                        <i data-lucide="chevron-right" class="w-6 h-6"></i>
+                                    </div>
+                                </button>
+                            </div>
+
+                            <!-- Dikkat Dağıtıcı Diğer Sonuçlar (Karartılmış) -->
+                            <div class="space-y-2 pt-1 opacity-35 select-none pointer-events-none">
+                                ${activePlan.distractors.map(d => `
+                                    <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center justify-between">
+                                        <div>
+                                            <p class="text-xs font-bold text-slate-700">${d.title}</p>
+                                            <p class="text-[10px] text-slate-500">${d.org}</p>
+                                        </div>
+                                        <i data-lucide="chevron-right" class="w-4 h-4 text-slate-400"></i>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (stepNum === 4) {
+                renderExternalStep4();
+            }
+
+            refreshIcons();
+            speakOverlayBanner();
+        }
+
+        // Adım 1 Etkileşimleri
+        function fillDemoCredentials() {
+            document.getElementById('extTcInput').value = "12345678902";
+            document.getElementById('extPassInput').value = "OrnekSifre2026";
+        }
+
+        function submitExternalLogin(e) {
+            e.preventDefault();
+            const btn = document.getElementById('extLoginSubmitBtn');
+            btn.innerHTML = '<span>Kimlik Doğrulanıyor...</span>';
+            btn.disabled = true;
+
+            setTimeout(() => {
+                // Otomatik Adım 2'ye (Arama + Yapıştır) geç
+                currentStep = 2;
+                clipboardTerm = activePlan.searchTerm;
+                tryCopyText(clipboardTerm);
+                renderExternalBrowserStep(2, "https://www.turkiye.gov.tr/");
+            }, 650);
+        }
+
+        // Adım 2 Etkileşimleri
+        function pasteIntoExternalSearch() {
+            const input = document.getElementById('extSearchInput');
+            const pasteBtn = document.getElementById('yellowPasteBtn');
+            const goBtn = document.getElementById('extSearchGoBtn');
+
+            input.value = clipboardTerm;
+            pasteBtn.classList.remove('target-highlight', 'bg-amber-400');
+            pasteBtn.classList.add('bg-emerald-100', 'text-emerald-900');
+            pasteBtn.innerHTML = '<i data-lucide="check" class="w-4 h-4"></i><span>Yapıştırıldı</span>';
+
+            goBtn.disabled = false;
+            goBtn.className = "w-full py-3.5 rounded-xl bg-[#d9252d] hover:bg-red-700 text-white font-extrabold text-base shadow-md flex items-center justify-center gap-2 transition cursor-pointer target-highlight";
+            refreshIcons();
+            speakText("Yapıştırıldı. Şimdi kırmızı e-Devlet'te Ara butonuna dokunun.");
+        }
+
+        function executeExternalSearch() {
+            // Doğrudan Adım 3'ün dış e-Devlet sonuç ekranına geç
+            currentStep = 3;
+            renderExternalBrowserStep(3, `https://www.turkiye.gov.tr/arama?aranan=${encodeURIComponent(activePlan.searchTerm)}`);
+        }
+
+        // Adım 3 Etkileşimi
+        function selectTargetServiceInExternal() {
+            // Doğrudan Adım 4'ün dış e-Devlet belge form ekranına geç
+            currentStep = 4;
+            step4SubState = 'select';
+            renderExternalBrowserStep(4, "https://www.turkiye.gov.tr/hizmet-belge-sorgulama");
+        }
+
+        // Adım 4 (Alt Adım 4A: Seçenek İşaretleme -> Alt Adım 4B: Dosyayı İndir -> Tamamlandı)
+        function renderExternalStep4() {
+            const banner = document.getElementById('overlayGuideBannerText');
+            const container = document.getElementById('externalPageContent');
+
+            if (step4SubState === 'select') {
+                banner.textContent = `Adım 4A: Önce "${activePlan.targetOption}" seçeneğine tıklayın.`;
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-300 shadow-md overflow-hidden">
+                        <div class="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
+                            <span class="text-xs font-extrabold truncate">${activePlan.targetService}</span>
+                            <span class="text-[10px] bg-white/15 px-2 py-0.5 rounded font-bold shrink-0">Hizmet Ekranı</span>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            <!-- Rehber Açıklama Kutusu -->
+                            <div class="p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs font-bold text-amber-950 flex items-start gap-2">
+                                <i data-lucide="info" class="w-4 h-4 text-amber-600 shrink-0 mt-0.5"></i>
+                                <span>${activePlan.optionWhy}</span>
+                            </div>
+
+                            <!-- Seçenek Formu (4A Vurgulu) -->
+                            <div class="space-y-2">
+                                <p class="text-xs font-extrabold text-slate-700">${activePlan.optionQuestion}</p>
+
+                                <div class="relative pt-3">
+                                    <span class="top-0 right-2 absolute z-10 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#d9252d] text-white text-[11px] font-black shadow-lg animate-bounce">
+                                        <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5"></i>
+                                        <span>1. BURAYA TIKLA</span>
+                                    </span>
+                                    <button onclick="confirmStep4Option()" class="w-full text-left p-3.5 rounded-2xl bg-amber-50 hover:bg-amber-100 border-2 border-[#d9252d] target-highlight flex items-center gap-3 transition cursor-pointer">
+                                        <div class="w-6 h-6 rounded-full border-2 border-[#d9252d] flex items-center justify-center bg-white shrink-0">
+                                            <div class="w-3 h-3 rounded-full bg-[#d9252d]"></div>
+                                        </div>
+                                        <span class="text-sm font-black text-slate-950">${activePlan.targetOption}</span>
+                                    </button>
+                                </div>
+
+                                <div class="p-3 rounded-xl border border-slate-200 bg-slate-50 flex items-center gap-3 opacity-40 select-none">
+                                    <div class="w-5 h-5 rounded-full border border-slate-400 bg-white"></div>
+                                    <span class="text-xs font-semibold text-slate-600">${activePlan.otherOption}</span>
+                                </div>
+                            </div>
+
+                            <!-- Henüz Pasif İndirme Alanı -->
+                            <div class="pt-2 border-t border-slate-200 opacity-40 select-none">
+                                <div class="w-full py-3 rounded-xl bg-slate-200 text-slate-500 font-extrabold text-sm text-center">
+                                    Önce yukarıdaki seçeneği işaretleyin
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (step4SubState === 'download') {
+                banner.textContent = "Adım 4B: Belgeniz hazır! Şimdi parlayan 'Dosyayı İndir (PDF)' butonuna tıklayın.";
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border border-slate-300 shadow-md overflow-hidden">
+                        <div class="bg-slate-800 text-white px-4 py-2.5 flex items-center justify-between">
+                            <span class="text-xs font-extrabold truncate">${activePlan.targetService}</span>
+                            <span class="text-[10px] bg-emerald-500 text-slate-950 px-2 py-0.5 rounded font-black shrink-0">Barkodlu PDF</span>
+                        </div>
+
+                        <div class="p-4 space-y-4">
+                            <!-- Seçilmiş Seçenek Özeti -->
+                            <div class="p-3 rounded-xl bg-emerald-50 border border-emerald-300 flex items-center justify-between">
+                                <div class="flex items-center gap-2">
+                                    <i data-lucide="check-circle-2" class="w-5 h-5 text-emerald-600 shrink-0"></i>
+                                    <div>
+                                        <p class="text-[11px] font-bold text-emerald-800">Seçim Tamamlandı</p>
+                                        <p class="text-xs font-black text-emerald-950">${activePlan.targetOption}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Hazır Barkodlu Belge Kutusu -->
+                            <div class="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-xl bg-red-100 text-[#d9252d] flex items-center justify-center shrink-0">
+                                    <i data-lucide="file-text" class="w-6 h-6"></i>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-black text-slate-900">${activePlan.docReadyTitle}</p>
+                                    <p class="text-xs font-semibold text-slate-600 mt-0.5">${activePlan.docReadySub}</p>
+                                </div>
+                            </div>
+
+                            <!-- 2. BURAYA TIKLA: Dosyayı İndir (PDF) -->
+                            <div class="relative pt-3">
+                                <span class="top-0 right-2 absolute z-10 inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#d9252d] text-white text-[11px] font-black shadow-lg animate-bounce">
+                                    <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5"></i>
+                                    <span>2. BURAYA TIKLA</span>
+                                </span>
+                                <button onclick="completeStep4Download()" class="w-full py-4 px-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-base target-highlight flex items-center justify-center gap-2 transition cursor-pointer">
+                                    <i data-lucide="download" class="w-5 h-5"></i>
+                                    <span>Dosyayı İndir (PDF)</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else {
+                banner.textContent = "İşlem Tamamlandı! Belgeniz kendi onayınızla telefonunuza indirildi.";
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl border-2 border-emerald-500 shadow-lg p-5 text-center space-y-4">
+                        <div class="w-16 h-16 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
+                            <i data-lucide="check-circle-2" class="w-10 h-10"></i>
+                        </div>
+                        <div>
+                            <span class="px-3 py-1 rounded-full bg-emerald-100 text-emerald-900 text-xs font-extrabold">4 / 4 ADIM TAMAMLANDI</span>
+                            <h3 class="text-lg font-black text-slate-950 mt-2">Belgeniz Güvenle İndirildi</h3>
+                            <p class="text-xs font-semibold text-slate-600 mt-1 leading-relaxed">
+                                Tüm adımlar kendi şifreniz ve kendi onayınızla tamamlandı. e-GüvenliAdım hiçbir şifre veya belge verisini kaydetmedi.
+                            </p>
+                        </div>
+                        <button onclick="exitGuideToHome()" class="w-full py-3.5 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-sm shadow-md flex items-center justify-center gap-2 transition cursor-pointer">
+                            <i data-lucide="home" class="w-4 h-4"></i>
+                            <span>e-GüvenliAdım Ana Ekranına Dön</span>
+                        </button>
+                    </div>
+                `;
+            }
+
+            refreshIcons();
+            speakOverlayBanner();
+        }
+
+        function confirmStep4Option() {
+            step4SubState = 'download';
+            renderExternalStep4();
+        }
+
+        function completeStep4Download() {
+            step4SubState = 'done';
+            renderExternalStep4();
+        }
+
+        // Kayan Baloncuktan Uygulama İçi Rehber Paneline Dönüş
+        function returnToGuideHub() {
+            showGuideHub();
+        }
+
+        // =========================================================
+        // PUNTO ÖLÇEĞİ & TÜRKÇE SESLİ YÖNLENDİRME
+        // =========================================================
+        function toggleFontSize() {
+            extraLargeFont = !extraLargeFont;
+            const btn = document.getElementById('fontToggleBtn');
+            btn.textContent = extraLargeFont ? "A+ Büyük Punto" : "A Normal Punto";
+            applyFontScale();
+        }
+
+        function applyFontScale() {
+            const titleEl = document.getElementById('hubStepTitle');
+            const descEl = document.getElementById('hubStepDesc');
+            if (!titleEl || !descEl) return;
+
+            if (extraLargeFont) {
+                titleEl.className = "text-2xl font-black text-slate-900 leading-snug";
+                descEl.className = "text-lg font-bold text-slate-800 mt-2 leading-relaxed";
+            } else {
+                titleEl.className = "text-lg font-extrabold text-slate-900 leading-snug";
+                descEl.className = "text-sm font-medium text-slate-700 mt-2 leading-relaxed";
+            }
+        }
+
+        function speakCurrentHubStep() {
+            const title = document.getElementById('hubStepTitle')?.textContent || "";
+            const desc = document.getElementById('hubStepDesc')?.textContent || "";
+            speakText(`${title}. ${desc}`);
+        }
+
+        function speakOverlayBanner() {
+            const text = document.getElementById('overlayGuideBannerText')?.textContent || "";
+            speakText(text);
+        }
+
+        function speakText(text) {
+            if (!('speechSynthesis' in window) || !text) return;
+            window.speechSynthesis.cancel();
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'tr-TR';
+            utterance.rate = 0.95;
+            window.speechSynthesis.speak(utterance);
+        }
+    </script>
+</body>
+</html>
